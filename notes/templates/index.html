@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notes Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            margin: 40px;
+            background: #f8fafc;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        canvas {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 40px;
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        th,
+        td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: #f1f5f9;
+        }
+
+        tr:hover {
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+  <h1>📊 Notes Dashboard</h1>
+
+  <h2>All Notes</h2>
+  <table id="notesTable">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Content</th>
+        <th>Created At</th>
+      </tr>
+    </thead>
+    <tbody id="notesBody">
+      <tr><td colspan="3" id="error">Loading...</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Notes Created Per Day</h2>
+  <canvas id="notesChart" width="800" height="200"></canvas>
+
+  <script>
+    async function loadNotes() {
+      try {
+        const res = await fetch('/api/v1/notes/');
+        if (!res.ok) throw new Error("Network error");
+        const notes = await res.json();
+        const tbody = document.getElementById('notesBody');
+        tbody.innerHTML = '';
+
+        if (!Array.isArray(notes) || notes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3">No notes found.</td></tr>';
+          return;
+        }
+
+        notes.forEach(n => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${n.title}</td>
+            <td>${n.content}</td>
+            <td>${new Date(n.created_at).toLocaleString()}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      } catch (e) {
+        document.getElementById('error').textContent = 'Failed to load notes.';
+      }
+    }
+
+    async function loadChart() {
+      try {
+        const res = await fetch('/api/v1/dashboard/');
+        if (!res.ok) throw new Error("Network error");
+        const data = await res.json();
+
+        const labels = data.map(d => d.day);
+        const counts = data.map(d => d.count);
+
+        new Chart(document.getElementById('notesChart'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Notes Created',
+              data: counts,
+              borderColor: 'rgb(75, 192, 192)',
+              fill: false,
+              tension: 0.1
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: { title: { display: true, text: 'Date' } },
+              y: { title: { display: true, text: 'Count' }, beginAtZero: true }
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Chart load error:', e);
+      }
+    }
+    
+    loadNotes();
+    loadChart();
+  </script>
+</body>
+</html>
